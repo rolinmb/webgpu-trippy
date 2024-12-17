@@ -22,6 +22,11 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
         const adapter = await navigator.gpu.requestAdapter();
         const device = await adapter.requestDevice();
         const context = canvas.getContext('webgpu');
@@ -35,8 +40,9 @@
 
         const shaderCode = `
         struct Uniforms {
-            canvasSize: vec2<f32>;
-            time: f32;
+            canvasSize: vec2<f32>, // 8 bytes
+            time: f32,             // 4 bytes
+            padding: f32,         // 4 bytes to align to 16 bytes
         };
         
         @group(0) @binding(0) var<uniform> uniforms: Uniforms;
@@ -53,13 +59,13 @@
 
         @fragment
         fn fragment_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
-            let uv = position.xy / uniforms.canvasSize;
+            let uv = position.xy / uniforms.canvasSize * 2.0 - 1.0;
             let time = uniforms.time;
 
             let color = vec3<f32>(
-                0.5 + 0.5 * sin(uv.xyx * 10.0 + time),
-                0.5 + 0.5 * sin(uv.yxy * 20.0 + time),
-                0.5 + 0.5 * sin(uv.yxz * 30.0 + time)
+                0.5 + 0.5 * sin(uv.x * 10.0 + time),
+                0.5 + 0.5 * sin(uv.y * 20.0 + time),
+                0.5 + 0.5 * sin(uv.x * 30.0 + time)
             );
             return vec4<f32>(color, 1.0);
         }
@@ -81,7 +87,7 @@
         });
 
         const uniformBuffer = device.createBuffer({
-            size: 16, // 2 floats for canvasSize + 1 float for time
+            size: 16, // 4 floats (aligned): 2 for canvasSize + 1 for time + 1 padding
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
@@ -101,7 +107,7 @@
             const canvasSize = new Float32Array([canvas.width, canvas.height]);
             const timeFloat = new Float32Array([time * 0.001]);
 
-            const uniformData = new Float32Array([...canvasSize, ...timeFloat]);
+            const uniformData = new Float32Array([...canvasSize, ...timeFloat, 0.0]);
             device.queue.writeBuffer(uniformBuffer, 0, uniformData);
 
             const commandEncoder = device.createCommandEncoder();
