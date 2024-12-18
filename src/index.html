@@ -59,14 +59,21 @@
 
         @fragment
         fn fragment_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
-            let uv = position.xy / uniforms.canvasSize * 2.0 - 1.0;
+            let uv = (position.xy / uniforms.canvasSize) * 2.0 - 1.0; // normalize to [-1.0, 1.0]
+            let center = vec2<f32>(0.0, 0.0); // center of the screen
             let time = uniforms.time;
 
-            let color = vec3<f32>(
-                0.5 + 0.5 * sin(uv.x * 10.0 + time),
-                0.5 + 0.5 * sin(uv.y * 20.0 + time),
-                0.5 + 0.5 * sin(uv.x * 30.0 + time)
-            );
+            // polar coordinates
+            let radius = length(uv);
+            let angle = atan2(uv.y, uv.x);
+
+            // create r/g/b values using trig functions
+            let r = 0.5 + 0.5 * sin(radius * 12.0 + time) * cos(angle * 5.0 + time * 0.5);
+            let g = 0.5 + 0.5 * sin(angle * 15.0 + time * 0.8) * cos(radius * 10.0 - time * 0.3);
+            let b = 0.5 + 0.5 * cos(radius * 20.0 + time) * sin(angle * 8.0 - time * 0.6);
+
+            let color = vec3<f32>(r, g, b);
+
             return vec4<f32>(color, 1.0);
         }
         `;
